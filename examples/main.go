@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"local/gelada"
+	"github.com/iu0v1/gelada"
 )
 
 func main() {
