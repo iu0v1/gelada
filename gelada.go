@@ -109,6 +109,14 @@ type Options struct {
 	// to Exceptions. Bingo! All places will require authorization, except pages
 	// on /noauth/... .
 	Exceptions []string
+
+	// TODO : comment here
+	AuthGuard AuthGuard
+}
+
+// TODO : comments here
+type AuthGuard interface {
+	Check(req *http.Request) bool
 }
 
 // Client contain info about the current user session
