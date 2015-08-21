@@ -2,9 +2,14 @@ package authguard
 
 import (
 	"encoding/gob"
+	"fmt"
+	"net/http"
 	"os"
+	"sync"
+	// "time"
 )
 
+// Options - structure, which is used to configure authguard.
 type Options struct {
 	Attempts        int
 	LockoutDuration int // lockout time in seconds
@@ -30,39 +35,75 @@ type Options struct {
 }
 
 // place for client data
-type Client struct{}
+type Client struct {
+	ag *AuthGuard
+	mu sync.Mutex
+}
 
+// reset cliet
+func (c *Client) Reset() {
+	// reset
+	// sync
+}
+
+// AuthGuard - main struct.
 type AuthGuard struct {
 	options *Options
 	file    *os.File
 	data    []*Client
 	// log // TODO : make logger
 
-	// TODO : create mutex?
+	mu sync.Mutex
 }
 
+// New - init and return new AuthGuard struct.
 func New(o Options) (*AuthGuard, error) {
 	ag := &AuthGuard{options: &o}
 
 	if ag.options.Store == "::memory::" {
-		// create new data struct and put in ag.data
+		ag.data = []*Client{}
 	} else if ag.options.Store == "" {
-		// error
+		return ag, fmt.Errorf("LoginRoute not declared\n")
 	} else {
 		data := []*Client{}
-		// open gob file
-		file, err := os.OpenFile(ag.options.Store, os.O_CREATE|os.O_RDWR|os.O_SYNC, 700)
+
+		file, err := os.OpenFile(
+			ag.options.Store,
+			os.O_CREATE|os.O_RDWR|os.O_SYNC,
+			700,
+		)
 		if err != nil {
-			// return error
+			return ag, fmt.Errorf("error to open Store file: %v\n", err)
 		}
 
 		dec := gob.NewDecoder(file)
 		if err := dec.Decode(&data); err != nil {
-			// return error
+			return ag, fmt.Errorf("error to read Store file: %v\n", err)
 		}
 
 		ag.data = data
 	}
 
+	// TODO : check options
+
 	return ag, nil
+}
+
+func (ag *AuthGuard) sync() error {
+	ag.mu.Lock()
+	defer ag.mu.Unlock()
+
+	enc := gob.NewEncoder(ag.file)
+	if err := enc.Encode(&ag.data); err != nil {
+		return fmt.Errorf("error to encode Store file: %v\n", err)
+	}
+
+	return nil
+}
+
+func (ag *AuthGuard) Check(req *http.Request) bool {
+	// get client
+	// check client
+	// sync on fail
+	return true
 }
