@@ -109,6 +109,15 @@ type Options struct {
 	// to Exceptions. Bingo! All places will require authorization, except pages
 	// on /noauth/... .
 	Exceptions []string
+
+	// AuthGuard is a tool for handle and processing login attempts.
+	AuthGuard AuthGuard
+}
+
+// AuthGuard - interface for options.AuthGuard fuction.
+type AuthGuard interface {
+	Check(username string, req *http.Request) bool
+	Complaint(username string, req *http.Request)
 }
 
 // Client contain info about the current user session
@@ -378,6 +387,13 @@ func (g *Gelada) AuthHandler(res http.ResponseWriter, req *http.Request) {
 	user := req.FormValue(g.options.LoginUserFieldName)
 	password := req.FormValue(g.options.LoginPasswordFieldName)
 
+	if g.options.AuthGuard != nil {
+		if !g.options.AuthGuard.Check(user, req) {
+			http.Redirect(res, req, g.options.LoginRoute, http.StatusFound)
+			return
+		}
+	}
+
 	auth := g.options.AuthProvider(user, password)
 	if auth {
 		session, err := g.store.Get(req, g.options.SessionName)
@@ -418,6 +434,9 @@ func (g *Gelada) AuthHandler(res http.ResponseWriter, req *http.Request) {
 
 		http.Redirect(res, req, redirectURL, http.StatusFound)
 	} else {
+		if g.options.AuthGuard != nil {
+			g.options.AuthGuard.Complaint(user, req)
+		}
 		http.Redirect(res, req, g.options.LoginRoute, http.StatusFound)
 	}
 }
