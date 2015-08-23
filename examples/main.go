@@ -232,7 +232,7 @@ func (hm *HandlerManager) HandleLoginPage(res http.ResponseWriter, req *http.Req
 			<span>Login: <b>gelada</b> | Password: <b>qwerty</b><br>
 			Try to login with wrong password :)<br>
 			Or go to <a href="/noauth/page">login-free zone</a>.</span><br>
-			<hr style='width:30%;'><br>
+			<hr style='width:50%;'><br>
 			<input type="text" name="login" placeholder="Login" autofocus><br>
 			<input type="password" placeholder="Password" name="password"><br>
 			<input type="submit" value="LOGIN">
