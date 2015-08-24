@@ -7,10 +7,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	// "github.com/iu0v1/gelada"
-	// "github.com/iu0v1/gelada/authguard"
-	"local/gelada"
-	"local/gelada/authguard"
+	"github.com/iu0v1/gelada"
+	"github.com/iu0v1/gelada/authguard"
 )
 
 func main() {
