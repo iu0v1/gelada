@@ -190,11 +190,11 @@ func (hm *HandlerManager) HandleLoginPage(res http.ResponseWriter, req *http.Req
 	}
 	data.User = user
 
-	visitor, ok := hm.AuthGuard.GetVisitor("user", req)
+	visitor, ok := hm.AuthGuard.GetVisitor("gelada", req)
 	if ok {
 		data.Visitor = visitor
 	} else {
-		data.Visitor = &authguard.Visitor{Attempts: 0, Lockouts: 0, Username: "user"}
+		data.Visitor = &authguard.Visitor{Attempts: 0, Lockouts: 0, Username: "gelada"}
 	}
 
 	if data.Visitor.Lockouts >= 1 {
