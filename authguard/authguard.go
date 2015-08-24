@@ -132,6 +132,9 @@ type Options struct {
 	// If LogHandler is selected - all log settings will be ignored.
 	LogHandler LogHandlerFunc
 
+	// ProxyIPHeaderName - http header name for handle user IP behind proxy
+	ProxyIPHeaderName string
+
 	// TODO
 	// Backend // ql || gob || ...
 }
@@ -402,7 +405,7 @@ func (ag *AuthGuard) sync() {
 func (ag *AuthGuard) Check(username string, req *http.Request) bool {
 	// check exceptions
 	for _, e := range ag.options.Exceptions {
-		if e == strings.Split(req.Host, ":")[0] {
+		if e == ag.getHost(req) {
 			return true
 		}
 	}
@@ -500,7 +503,7 @@ func (ag *AuthGuard) Complaint(username string, req *http.Request) {
 		// create new visitor
 		v = &visitor{
 			Username:  username,
-			Host:      strings.Split(req.Host, ":")[0],
+			Host:      ag.getHost(req),
 			UserAgent: req.UserAgent(),
 			Attempts:  1,
 			ResetAttemptsAfter: currentTime.Add(
@@ -516,9 +519,9 @@ func (ag *AuthGuard) Complaint(username string, req *http.Request) {
 
 		switch ag.options.BindMethod {
 		case BindToIP:
-			id = md5.Sum([]byte(strings.Split(req.Host, ":")[0]))
+			id = md5.Sum([]byte(ag.getHost(req)))
 		case BindToUsernameAndIP:
-			id = md5.Sum([]byte(username + strings.Split(req.Host, ":")[0]))
+			id = md5.Sum([]byte(username + ag.getHost(req)))
 		}
 
 		ag.data.pool[string(id[:])] = v
@@ -544,9 +547,9 @@ func (ag *AuthGuard) visitorGet(username string, req *http.Request) (*visitor, b
 
 	switch ag.options.BindMethod {
 	case BindToIP:
-		id = md5.Sum([]byte(strings.Split(req.Host, ":")[0]))
+		id = md5.Sum([]byte(ag.getHost(req)))
 	case BindToUsernameAndIP:
-		id = md5.Sum([]byte(username + strings.Split(req.Host, ":")[0]))
+		id = md5.Sum([]byte(username + ag.getHost(req)))
 	}
 
 	v := ag.data.pool[string(id[:])]
@@ -680,4 +683,13 @@ func (ag *AuthGuard) ClearUntrackedVisitors() {
 
 	ag.data.pool = visitors
 	ag.sync()
+}
+
+// getHost - get host from http.Request
+func (ag *AuthGuard) getHost(req *http.Request) string {
+	IP := req.Header.Get(ag.options.ProxyIPHeaderName)
+	if IP == "" {
+		return strings.Split(req.Host, ":")[0]
+	}
+	return IP
 }

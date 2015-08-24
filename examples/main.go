@@ -7,8 +7,10 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/iu0v1/gelada"
-	"github.com/iu0v1/gelada/authguard"
+	// "github.com/iu0v1/gelada"
+	// "github.com/iu0v1/gelada/authguard"
+	"local/gelada"
+	"local/gelada/authguard"
 )
 
 func main() {
@@ -24,6 +26,7 @@ func main() {
 		SyncAfter:             10,
 		// Exceptions:            []string{"192.168.1.1"},
 		// Store:                 "users.gob",
+		// ProxyIPHeaderName:     "X-Real-IP",
 		Store:          "::memory::",
 		LogLevel:       authguard.LogLevelNone,
 		LogDestination: os.Stdout,
