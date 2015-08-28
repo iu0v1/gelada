@@ -5,10 +5,12 @@
 package authguard
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/gob"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -237,15 +239,14 @@ func (v *visitor) lockDate() time.Time {
 
 // visitors contain visitors and current BindMethod
 type visitors struct {
-	bindMethod BindType
-	pool       map[string]*visitor
+	BindMethod BindType
+	Pool       map[string]*visitor
 	mu         sync.Mutex
 }
 
 // AuthGuard - main struct.
 type AuthGuard struct {
 	options     *Options
-	file        *os.File
 	data        *visitors
 	logger      *log
 	syncTrigger int
@@ -266,8 +267,8 @@ func New(o Options) (*AuthGuard, error) {
 	if ag.options.Store == "::memory::" {
 		v := map[string]*visitor{}
 		ag.data = &visitors{
-			bindMethod: ag.options.BindMethod,
-			pool:       v,
+			BindMethod: ag.options.BindMethod,
+			Pool:       v,
 		}
 	} else if ag.options.Store == "" {
 		return ag, fmt.Errorf("LoginRoute not declared\n")
@@ -291,13 +292,15 @@ func New(o Options) (*AuthGuard, error) {
 				return ag, fmt.Errorf("error to read Store file: %v\n", err)
 			}
 			// enpty Store
-			data.bindMethod = ag.options.BindMethod
+			v := map[string]*visitor{}
+			data.BindMethod = ag.options.BindMethod
+			data.Pool = v
 		}
 
 		// check BindMethod
-		if data.bindMethod != ag.options.BindMethod {
+		if data.BindMethod != ag.options.BindMethod {
 			var b string
-			if data.bindMethod == BindToIP {
+			if data.BindMethod == BindToIP {
 				b = "BindToIp"
 			} else {
 				b = "BinBindToUsernameAndIP"
@@ -310,7 +313,7 @@ func New(o Options) (*AuthGuard, error) {
 		}
 
 		// update pointers in clients
-		for _, visitor := range data.pool {
+		for _, visitor := range data.Pool {
 			visitor.ag = ag
 		}
 
@@ -368,9 +371,15 @@ func (ag *AuthGuard) Sync() error {
 	ag.mu.Lock()
 	defer ag.mu.Unlock()
 
-	enc := gob.NewEncoder(ag.file)
+	var buf bytes.Buffer
+
+	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(&ag.data); err != nil {
 		return fmt.Errorf("error to encode Store file: %v\n", err)
+	}
+
+	if err := ioutil.WriteFile(ag.options.Store, buf.Bytes(), 640); err != nil {
+		return fmt.Errorf("error to write Store file: %v", err)
 	}
 
 	return nil
@@ -389,14 +398,23 @@ func (ag *AuthGuard) sync() {
 		return
 	}
 
+	var buf bytes.Buffer
+
 	ag.syncTrigger++
 	if ag.syncTrigger == ag.options.SyncAfter {
-		enc := gob.NewEncoder(ag.file)
+		ag.syncTrigger = 0
+		enc := gob.NewEncoder(&buf)
 		if err := enc.Encode(&ag.data); err != nil {
-			msg := fmt.Sprintf("error to encode Store file [on sync]: %v", err)
+			msg := fmt.Sprintf("error to encode Store file [on sys sync]: %v", err)
 			ag.logger.Log(msg, LogLevelError)
 			return
 		}
+	}
+
+	if err := ioutil.WriteFile(ag.options.Store, buf.Bytes(), 640); err != nil {
+		msg := fmt.Sprintf("error to write Store file [on sys sync]: %v", err)
+		ag.logger.Log(msg, LogLevelError)
+		return
 	}
 }
 
@@ -524,7 +542,7 @@ func (ag *AuthGuard) Complaint(username string, req *http.Request) {
 			id = md5.Sum([]byte(username + ag.getHost(req)))
 		}
 
-		ag.data.pool[string(id[:])] = v
+		ag.data.Pool[string(id[:])] = v
 		ag.sync()
 		return
 	}
@@ -552,7 +570,7 @@ func (ag *AuthGuard) visitorGet(username string, req *http.Request) (*visitor, b
 		id = md5.Sum([]byte(username + ag.getHost(req)))
 	}
 
-	v := ag.data.pool[string(id[:])]
+	v := ag.data.Pool[string(id[:])]
 	if v == nil {
 		return nil, false
 	}
@@ -602,7 +620,7 @@ func (ag *AuthGuard) GetAllVisitors() []*Visitor {
 	ag.data.mu.Lock()
 	defer ag.data.mu.Unlock()
 
-	for _, visitor := range ag.data.pool {
+	for _, visitor := range ag.data.Pool {
 		v := &Visitor{
 			Username:           visitor.Username,
 			Host:               visitor.Host,
@@ -654,7 +672,7 @@ func (ag *AuthGuard) ClearUntrackedVisitors() {
 	ag.data.mu.Lock()
 	defer ag.data.mu.Unlock()
 
-	for id, v := range ag.data.pool {
+	for id, v := range ag.data.Pool {
 		v.mu.Lock()
 		currentTime := time.Now().Local()
 
@@ -681,7 +699,7 @@ func (ag *AuthGuard) ClearUntrackedVisitors() {
 		v.mu.Unlock()
 	}
 
-	ag.data.pool = visitors
+	ag.data.Pool = visitors
 	ag.sync()
 }
 
