@@ -575,6 +575,8 @@ func (ag *AuthGuard) visitorGet(username string, req *http.Request) (*visitor, b
 		return nil, false
 	}
 
+	ag.visitorDataActualize(v)
+
 	return v, true
 }
 
