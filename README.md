@@ -1,5 +1,5 @@
 # Gelada
-Gelada is a middleware package, which provides a tool for HTTP session authentication control (via cookie).
+Gelada is a middleware package, which provides a cookie-based session management.
 
 ## Get it
     go get -u github.com/iu0v1/gelada
