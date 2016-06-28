@@ -112,6 +112,11 @@ type Options struct {
 
 	// AuthGuard is a tool for handle and processing login attempts.
 	AuthGuard AuthGuard
+
+	// UnauthorizedHeaderName - heder which will be sent to the client if the
+	// user is not authorized.
+	// Sends only if it was selected.
+	UnauthorizedHeaderName string
 }
 
 // AuthGuard - interface for options.AuthGuard fuction.
@@ -272,6 +277,10 @@ func (g *Gelada) checkAuth(res http.ResponseWriter, req *http.Request) bool {
 			redirectURL = req.URL.String()
 		}
 
+		if g.options.UnauthorizedHeaderName != "" {
+			res.Header().Set(g.options.UnauthorizedHeaderName, "unauthorized")
+		}
+
 		session.Values["postLoginRedirect"] = redirectURL
 		if err := session.Save(req, res); err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -350,6 +359,9 @@ func (g *Gelada) noAuthExeption(req *http.Request) bool {
 func (g *Gelada) GlobalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == g.options.LoginRoute || g.noAuthExeption(req) {
+			if g.options.UnauthorizedHeaderName != "" {
+				res.Header().Set(g.options.UnauthorizedHeaderName, "unauthorized")
+			}
 			next.ServeHTTP(res, req)
 			return
 		}
@@ -372,6 +384,9 @@ func (g *Gelada) GlobalAuth(next http.Handler) http.Handler {
 func (g *Gelada) Auth(f http.HandlerFunc) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == g.options.LoginRoute || g.noAuthExeption(req) {
+			if g.options.UnauthorizedHeaderName != "" {
+				res.Header().Set(g.options.UnauthorizedHeaderName, "unauthorized")
+			}
 			f.ServeHTTP(res, req)
 			return
 		}
